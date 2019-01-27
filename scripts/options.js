@@ -1,27 +1,61 @@
-// $(function() {
-//     $(".lined").linedtextarea({});
-// });
-
 let storage = chrome.storage.sync;
 
-function isEmptyObject(obj) {
-    return (Object.entries(obj).length === 0 && obj.constructor === Object);
+/////////////////////////
+// Storage functions  //
+////////////////////////
+function setStorageDefaultSeries() { // Useful for debugging
+    storage.set({
+        "series" : {
+            "DragonBall" : {
+                "image": 'image',
+                "links": 'links',
+                "names": 'names'
+            }
+        }
+    });
 }
-
+function printStorage(){ // Useful for debugging
+    storage.get(function(items) {
+        console.log(items);
+    });
+}
+function setStorageSerie(name, serie){
+    storage.get("series", function(items) {
+        items['series'][name] = serie;
+        storage.set({"series" : items['series']})
+    });
+}
+function setStorageSeries(series){
+    storage.set({"series" : series});
+}
+function getStorageSerie(name, callback){
+    storage.get("series", function(items) {
+        callback(items['series'][name])
+    });
+}
+function getStorageSeries(callback){
+    storage.get("series", function(items) {
+        callback(items['series'])
+    });
+}
+/////////////////////////
+//   Popup functions  //
+////////////////////////
 function wantToReplace(name) {
     return confirm("You already stored a serie called " + name + ". You're going to replace it.");
 }
 function wantToRemove(name) {
     return confirm("Are you sure you want to remove " + name + "?");
 }
-
+////////////////////////////
+//   Document functions  //
+//////////////////////////
 function getCurrentSerieName() {
     return $('#text_serie_name').val();
 }
 function getCurrentSerieOldName() {
     return $('#serie_modal_title').text();
 }
-
 function getCurrentSerie() {
     let image = $('#text_serie_image_url').val();
     let links = $('#text_serie_links').val();
@@ -32,50 +66,50 @@ function getCurrentSerie() {
         "names": names
     };
 }
-
+////////////////////////////
+//     User functions    //
+//////////////////////////
 function addSerie() {
     let name = getCurrentSerieName();
     // Test if it already exists
-    storage.get(""+name, function(items) {
-        if (isEmptyObject(items) || wantToReplace(name)) {
-            storage.set({[name] : serie});
-            displaySerie();
+    getStorageSerie(name, function(items) {
+        if (items === undefined || wantToReplace(name)) {
+            let serie = getCurrentSerie();
+            setStorageSerie(name, serie);
             $('#serie_modal').modal('hide');
         }
     });
 }
-
 function editSerie() {
     let name = getCurrentSerieName();
     let oldName = getCurrentSerieOldName();
-    let serie = getCurrentSerie();
-    // Test if it already exists
     if (name !== oldName) {
-        storage.get(""+name, function(items) {
-            if (isEmptyObject(items) || wantToReplace(name)) {
-                storage.set({[name] : serie});
-                storage.remove(oldName);
-                displaySerie();
-                $('#serie_modal').modal('hide');
+        getStorageSerie(name, function(items) {
+            if (items === undefined || wantToReplace(name)) {
+                removeSerie(false);
+                addSerie();
             }
         });
     } else {
         addSerie();
     }
 }
-
-function removeSerie() {
+function removeSerie(needConfirmation=true) {
     let name = getCurrentSerieOldName();
-    if (wantToRemove(name)){
-        storage.remove(name);
+    if (!needConfirmation || wantToRemove(name)){
+        getStorageSeries(function (items) {
+            delete items[name];
+            setStorageSeries(items);
+        });
         $('#serie_modal').modal('hide');
-        displaySerie();
     }
 }
-
-function displaySerie() {
+////////////////////////////
+//     View functions    //
+//////////////////////////
+function displaySeries() {
     $('#serie_list_block').empty();
-    storage.get(function (items) {
+    getStorageSeries(function (items) {
         let keys = Object.keys(items);
         for (let i = 0; i < keys.length; i++) {
             let item = items[keys[i]];
@@ -85,14 +119,10 @@ function displaySerie() {
         }
     });
 }
-
 function showLines() {
     $(".lined").linedtextarea({});
-    let showLinesButton = document.getElementById("button_get_lines");
-    showLinesButton.parentNode.removeChild(showLinesButton);
 }
-
-function resetModal() {
+function setModalForAdd() {
     $('#serie_form').get(0).reset();
     document.getElementById("serie_modal_title").innerText = "Add Serie";
     document.getElementById("text_serie_links").innerText = '';
@@ -101,7 +131,6 @@ function resetModal() {
     $("#remove_serie").hide();
     $("#edit_serie").hide();
 }
-
 function setModalForEdit(name, serie) {
     $('#serie_form').get(0).reset();
     document.getElementById("serie_modal_title").innerText = name;
@@ -113,17 +142,9 @@ function setModalForEdit(name, serie) {
     $("#remove_serie").show();
     $("#edit_serie").show();
 }
-
-function initializeEvents() {
-    // Buttons
-    $('#add_serie').on('click', addSerie);
-    $('#edit_serie').on('click', editSerie);
-    $('#remove_serie').on('click', removeSerie);
-    $('#button_get_lines').on('click', showLines);
-    $('#button_modal_add_serie').on('click', resetModal);
-}
-
-
+////////////////////////////
+//  Component functions  //
+//////////////////////////
 function serieBlock(name, serie) {
     let blockDiv = document.createElement('div');
     blockDiv.setAttribute('class', 'item');
@@ -153,9 +174,28 @@ function serieBlock(name, serie) {
     };
     return blockDiv;
 }
-
+/////////////////////////////////
+//  Initialization functions  //
+///////////////////////////////
+function initializeEvents() {
+    // Buttons
+    $('#add_serie').on('click', addSerie);
+    $('#edit_serie').on('click', editSerie);
+    $('#remove_serie').on('click', removeSerie);
+    $('#button_get_lines').on('click', showLines);
+    $('#button_modal_add_serie').on('click', setModalForAdd);
+    chrome.storage.onChanged.addListener(displaySeries);
+}
+function initModal(){
+    showLines();
+    $('#serie_modal').hide();
+}
+/////////////////////////
+//  onLoad execution  //
+///////////////////////
 $(function () {
     initializeEvents();
-    displaySerie();
+    displaySeries();
+    initModal();
 });
 
