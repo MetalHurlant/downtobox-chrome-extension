@@ -241,13 +241,13 @@ function downloadEpisodes(serieName) {
         downloader.startDownload();
         chrome.downloads.onChanged.addListener(function(downloadDelta){
             // 'NETWORK_FAILED'
+            downloader.startDownload();
             if(downloadDelta.error.current === 'NETWORK_FAILED'){
                 chrome.downloads.search({id: downloadDelta.id}, function(result) {
                     downloadItem = result[0];
 
                 });
             }
-            downloader.startDownload();
         });
     });
 }
@@ -268,7 +268,7 @@ class Downloader {
             let isAvailableSlots = ((self.maxDl - results.length) >= 0);
             if (isAvailableSlots) {
                 let serieName = self.serieName;
-                let episodeName = self.names[self.cpt];
+                let episodeName = self.names[self.cpt].replace("?", "");
                 let episodeLink = self.links[self.cpt];
                 let episodeNumber = self.cpt + 1;
                 downloadEpisode(serieName, episodeName, episodeLink, episodeNumber);
