@@ -5,15 +5,11 @@
     resize: none;
 }
 
-
-.block_image_container{
-    width: 160px;
-    height: 130px;
+.tab-pane{
     margin-top: 10px;
-    display: block;
-    margin-left: auto;
-    margin-right: auto;
 }
+
+
 .items  {
     width: 100%;
     margin: 5px;
@@ -29,6 +25,14 @@
     box-shadow:0 0 8px rgba(0, 0, 0, 0.2);
 }
 
+.block_image_container{
+    width: 160px;
+    height: 130px;
+    margin-top: 10px;
+    display: block;
+    margin-left: auto;
+    margin-right: auto;
+}
 .img_item {
     max-width: 160px;
     max-height: 130px;
@@ -40,10 +44,16 @@
 
 .item_block_title {
     text-align: center;
-    margin-bottom: 5px;
+    margin-top: 20px;
+    margin-bottom: 20px;
     margin-left: 5px;
     margin-right: 5px;
     font-size: 1em;
+}
+
+.dl_button{
+    display: block;
+    margin: auto;
 }
 
 .modal-lg {

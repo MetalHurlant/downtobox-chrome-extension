@@ -1,4 +1,4 @@
-let storage = chrome.storage.sync;
+let storage = chrome.storage.local;
 
 /////////////////////////
 // Storage functions  //
@@ -7,9 +7,9 @@ function setStorageDefaultSeries() { // Useful for debugging
     storage.set({
         "series" : {
             "DragonBall" : {
-                "image": 'image',
-                "links": 'links',
-                "names": 'names'
+                "image": 'http://www.asahicom.jp/ajw/articles/images/AS20180126004170_comm.jpg',
+                "links": 'https://uptobox.com/mdjtrwppg9dz',
+                "names": 'Le grand départ (Bulma et Son Gokû)'
             }
         }
     });
@@ -19,7 +19,7 @@ function printStorage(){ // Useful for debugging
         console.log(items);
     });
 }
-function setStorageSerie(name, serie){
+function setStorageSerie(name, serie) {
     storage.get("series", function(items) {
         items['series'][name] = serie;
         storage.set({"series" : items['series']})
@@ -54,7 +54,7 @@ function getCurrentSerieName() {
     return $('#text_serie_name').val();
 }
 function getCurrentSerieOldName() {
-    return $('#serie_modal_title').text();
+    return $('#series_modal_title').text();
 }
 function getCurrentSerie() {
     let image = $('#text_serie_image_url').val();
@@ -71,12 +71,11 @@ function getCurrentSerie() {
 //////////////////////////
 function addSerie() {
     let name = getCurrentSerieName();
-    // Test if it already exists
     getStorageSerie(name, function(items) {
         if (items === undefined || wantToReplace(name)) {
             let serie = getCurrentSerie();
             setStorageSerie(name, serie);
-            $('#serie_modal').modal('hide');
+            $('#series_modal').modal('hide');
         }
     });
 }
@@ -101,7 +100,7 @@ function removeSerie(needConfirmation=true) {
             delete items[name];
             setStorageSeries(items);
         });
-        $('#serie_modal').modal('hide');
+        $('#series_modal').modal('hide');
     }
 }
 ////////////////////////////
@@ -122,18 +121,18 @@ function displaySeries() {
 function showLines() {
     $(".lined").linedtextarea({});
 }
-function setModalForAdd() {
+function setModalSeriesForAdd() {
     $('#serie_form').get(0).reset();
-    document.getElementById("serie_modal_title").innerText = "Add Serie";
+    document.getElementById("series_modal_title").innerText = "Add Serie";
     document.getElementById("text_serie_links").innerText = '';
     document.getElementById("text_serie_titles").innerText = '';
     $("#add_serie").show();
     $("#remove_serie").hide();
     $("#edit_serie").hide();
 }
-function setModalForEdit(name, serie) {
+function setModalSeriesForEditd(name, serie) {
     $('#serie_form').get(0).reset();
-    document.getElementById("serie_modal_title").innerText = name;
+    document.getElementById("series_modal_title").innerText = name;
     document.getElementById("text_serie_links").innerText = serie['links'];
     document.getElementById("text_serie_titles").innerText = serie['names'];
     $("#text_serie_name").val(name);
@@ -149,6 +148,11 @@ function serieBlock(name, serie) {
     let blockDiv = document.createElement('div');
     blockDiv.setAttribute('class', 'item');
     blockDiv.setAttribute('name', name);
+    blockDiv.setAttribute('data-toggle','modal');
+    blockDiv.setAttribute('data-target', '#series_modal');
+    blockDiv.onclick = function (){
+        setModalSeriesForEditd(this.getAttribute('name'), serie);
+    };
     let blockImageContainer = document.createElement('div');
     blockImageContainer.setAttribute('class', 'block_image_container');
     blockDiv.appendChild(blockImageContainer);
@@ -167,35 +171,112 @@ function serieBlock(name, serie) {
     blockTitle.setAttribute('class', 'item_block_title');
     blockTitle.innerHTML = name;
     blockDiv.appendChild(blockTitle);
-    blockDiv.setAttribute('data-toggle','modal');
-    blockDiv.setAttribute('data-target', '#serie_modal');
-    blockDiv.onclick = function (){
-        setModalForEdit(this.getAttribute('name'), serie);
+    let dl_botton = document.createElement('input');
+    dl_botton.setAttribute('type', 'button');
+    dl_botton.setAttribute('value', 'DOWNLOAD');
+    dl_botton.setAttribute('class', 'btn btn-success dl_button');
+    dl_botton.onclick = function(e){
+        e.stopPropagation();
+        downloadEpisodes(name);
     };
+    blockDiv.appendChild(dl_botton);
     return blockDiv;
 }
 /////////////////////////////////
 //  Initialization functions  //
 ///////////////////////////////
-function initializeEvents() {
-    // Buttons
+function initializeEventsSeries() {
     $('#add_serie').on('click', addSerie);
     $('#edit_serie').on('click', editSerie);
     $('#remove_serie').on('click', removeSerie);
     $('#button_get_lines').on('click', showLines);
-    $('#button_modal_add_serie').on('click', setModalForAdd);
+    $('#button_modal_add_serie').on('click', setModalSeriesForAdd);
     chrome.storage.onChanged.addListener(displaySeries);
 }
-function initModal(){
+function initModalSeries(){
     showLines();
-    $('#serie_modal').hide();
+    $('#series_modal').hide();
 }
 /////////////////////////
 //  onLoad execution  //
 ///////////////////////
 $(function () {
-    initializeEvents();
+    initializeEventsSeries();
     displaySeries();
-    initModal();
+    initModalSeries();
 });
 
+///////////////////////////////
+//    Download functions    //
+/////////////////////////////
+function padToThree(number) {
+    if (number<=999) { number = ("00"+number).slice(-3); }
+    return number;
+}
+
+function downloadEpisode(serieName, episodeName, episodeLink, episodeNumber) {
+    let request = new XMLHttpRequest();
+    request.open('GET', episodeLink, false);
+    request.send();
+    let response = request.responseText;
+    let link = response.split('" class=\'big-button-green-flat')[0].split('<a href="').slice(-1)[0];
+    let fileExtension = link.split('.').slice(-1)[0];
+    let fileName = serieName + '.' + padToThree(episodeNumber) + '.' + episodeName + '.' + fileExtension;
+    chrome.downloads.search({query: [fileName], state: "complete"}, function (results) {
+        if (results.length === 0) {
+            chrome.downloads.download({ url: link, filename: serieName+ '/' +fileName});
+        }
+    });
+}
+
+function downloadEpisodes(serieName) {
+    getStorageSerie(serieName, function(serie) {
+        let links = serie['links'].split('\n');
+        let names = serie['names'].split('\n');
+        if (links.length !== names.length){
+            alert("There is not the same number of links and names :\n"
+                + links.length + " links for " + names.length + " names");
+        }
+        let downloader = new Downloader(serieName, links, names);
+        downloader.startDownload();
+        chrome.downloads.onChanged.addListener(function(downloadDelta){
+            // 'NETWORK_FAILED'
+            if(downloadDelta.error.current === 'NETWORK_FAILED'){
+                chrome.downloads.search({id: downloadDelta.id}, function(result) {
+                    downloadItem = result[0];
+
+                });
+            }
+            downloader.startDownload();
+        });
+    });
+}
+
+class Downloader {
+    constructor(serieName, links, names, nbEpisodes) {
+        this.serieName = serieName;
+        this.links = links;
+        this.names = names;
+        this.nbEpisodes = nbEpisodes;
+        this.cpt = 0;
+        this.maxDl = 1;
+    }
+
+    startDownload() {
+        let self = this;
+        chrome.downloads.search({state: "in_progress"}, function(results) {
+            let isAvailableSlots = ((self.maxDl - results.length) >= 0);
+            if (isAvailableSlots) {
+                let serieName = self.serieName;
+                let episodeName = self.names[self.cpt];
+                let episodeLink = self.links[self.cpt];
+                let episodeNumber = self.cpt + 1;
+                downloadEpisode(serieName, episodeName, episodeLink, episodeNumber);
+                self.cpt++;
+            }
+        });
+        if(self.cpt !== self.nbEpisodes) {
+            setTimeout(this.startDownload, 1000);
+        }
+    }
+}
